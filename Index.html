@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskGlow Pro - Admin Control Center</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #2e1065, #020617);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(168, 85, 247, 0.15);
+        }
+        .admin-nav-active {
+            color: #c084fc;
+            background: rgba(168, 85, 247, 0.1);
+            border-left: 4px solid #a855f7;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen antialiased select-none flex flex-col md:flex-row">
+
+    <div id="admin-gate" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-8 rounded-3xl space-y-6 shadow-2xl border border-purple-500/30">
+            <div class="text-center">
+                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-600 flex items-center justify-center font-bold text-white text-3xl mx-auto shadow-xl">👑</div>
+                <h1 class="text-2xl font-extrabold mt-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">Secure Admin Panel</h1>
+                <p class="text-xs text-slate-400 mt-1">অ্যাক্সেস করতে সিক্রেট অ্যাডমিন ক্রেডেনশিয়াল দিন</p>
+            </div>
+            <form id="admin-login-form" class="space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-purple-300 block mb-1">অ্যাডমিন ইমেইল</label>
+                    <input type="email" id="gate-email" required placeholder="admin@gmail.com" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-purple-300 block mb-1">সিক্রেট পাসওয়ার্ড</label>
+                    <input type="password" id="gate-pass" required placeholder="••••••••" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl font-bold text-xs shadow-lg transition-all">প্যানেল আনলক করুন 🔓</button>
+            </form>
+        </div>
+    </div>
+
+    <aside id="sidebar" class="hidden md:flex flex-col w-full md:w-64 bg-slate-950/60 border-r border-slate-900 p-4 space-y-2">
+        <div class="p-3 mb-4 flex items-center gap-3 border-b border-slate-900">
+            <span class="text-xl">👑</span>
+            <div>
+                <h2 class="font-bold text-sm text-purple-400">TaskGlow Control</h2>
+                <span class="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">● Live System</span>
+            </div>
+        </div>
+        <button onclick="switchAdminTab('overview')" id="tab-overview" class="admin-nav-active w-full text-left text-xs font-bold p-3 rounded-xl transition-all flex items-center gap-2">📊 Dashboard Overview</button>
+        <button onclick="switchAdminTab('users')" id="tab-users" class="w-full text-left text-xs font-bold p-3 rounded-xl transition-all flex items-center gap-2">👤 User Management</button>
+        <button onclick="switchAdminTab('tasks')" id="tab-tasks" class="w-full text-left text-xs font-bold p-3 rounded-xl transition-all flex items-center gap-2">🎯 Global Tasks Feed</button>
+        <div class="pt-8 mt-auto">
+            <button onclick="adminLogout()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold p-2.5 rounded-xl border border-red-500/20 text-center">Logout Panel 🚪</button>
+        </div>
+    </aside>
+
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 glass-card border-t border-slate-900 flex justify-around py-2 text-[10px] font-bold z-40">
+        <button onclick="switchAdminTab('overview')" class="flex flex-col items-center gap-1 py-1 px-2 text-purple-400"><span>📊</span><span>Overview</span></button>
+        <button onclick="switchAdminTab('users')" class="flex flex-col items-center gap-1 py-1 px-2 text-slate-400"><span>👤</span><span>Users</span></button>
+        <button onclick="switchAdminTab('tasks')" class="flex flex-col items-center gap-1 py-1 px-2 text-slate-400"><span>🎯</span><span>Tasks</span></button>
+    </nav>
+
+    <main id="workspace" class="hidden flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full pb-24 md:pb-8 space-y-6 overflow-y-auto">
+        
+        <section id="view-overview" class="admin-view space-y-6">
+            <h2 class="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">📊 System Dashboard Overview</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="glass-card p-5 rounded-2xl"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">টোটাল রেজিস্টার্ড ইউজার</p><p class="text-3xl font-black text-purple-400 mt-1" id="count-users">0</p></div>
+                <div class="glass-card p-5 rounded-2xl"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">সক্রিয় লাইভ টাস্ক</p><p class="text-3xl font-black text-sky-400 mt-1" id="count-tasks">0</p></div>
+                <div class="glass-card p-5 rounded-2xl"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">মোট ইউজার ব্যালেন্স</p><p class="text-3xl font-black text-yellow-400 mt-1" id="count-points">0</p></div>
+            </div>
+        </section>
+
+        <section id="view-users" class="admin-view hidden space-y-4">
+            <h2 class="text-xl font-extrabold text-purple-400">👤 ইউজার কন্ট্রোল ও ডাটা মডারেশন</h2>
+            <div class="glass-card rounded-2xl overflow-hidden border border-slate-900 shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-950 text-slate-400 border-b border-slate-900 uppercase text-[10px] tracking-wider">
+                            <tr>
+                                <th class="p-4 font-bold">User Identity</th>
+                                <th class="p-4 font-bold text-center">Points Balance</th>
+                                <th class="p-4 font-bold text-center">Tasks Done</th>
+                                <th class="p-4 font-bold text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="divide-y divide-slate-900/60 bg-slate-900/10">
+                            <tr><td colspan="4" class="text-center p-8 text-slate-500">ইউজার ডাটা লোড করা হচ্ছে...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-tasks" class="admin-view hidden space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-extrabold text-sky-400">🎯 গ্লোবাল বিজ্ঞাপনের লাইভ মডারেশন</h2>
+                <button onclick="openCustomTaskModal()" class="bg-sky-500 text-slate-950 text-xs font-bold px-4 py-2 rounded-xl shadow-lg">+ Add Admin Special Task</button>
+            </div>
+            <div id="admin-tasks-feed" class="grid gap-3 sm:grid-cols-2"></div>
+        </section>
+
+    </main>
+
+    <div id="custom-task-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-4 shadow-2xl relative">
+            <div class="flex justify-between items-center border-b border-slate-900 pb-2">
+                <h3 class="text-sm font-bold text-sky-400">⚡ গ্লোবাল টাস্ক পুশ</h3>
+                <button onclick="closeCustomTaskModal()" class="text-slate-400 hover:text-white font-bold text-xl">&times;</button>
+            </div>
+            <form id="admin-push-task-form" class="space-y-3">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-0.5">টাস্ক ক্যাটাগরি</label>
+                    <input type="text" id="task-type" value="YouTube Special (Admin)" class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-0.5">টার্গেট ইউআরএল লিংক</label>
+                    <input type="url" id="task-link" required placeholder="https://youtube.com/..." class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-0.5">কাজের নির্দেশনা</label>
+                    <input type="text" id="task-desc" value="চ্যানেলটি সাবস্ক্রাইব করুন এবং বেল আইকন অন করুন।" class="w-full bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-xs text-white">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold p-3 rounded-xl text-xs mt-2">তাত্ক্ষণিকভাবে লাইভ করুন ⚡</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbEeEdtFT3dqevaAnIhXzuAsRGggZLl3c",
+            authDomain: "taskglow-11a30.firebaseapp.com",
+            projectId: "taskglow-11a30",
+            storageBucket: "taskglow-11a30.firebasestorage.app",
+            messagingSenderId: "196409472048",
+            appId: "1:196409472048:web:6f8ea794c0ec54d6afa9f5",
+            measurementId: "G-E6ZCBDRTSJ"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const MASTER_ADMIN_EMAIL = "siamhossein.1x@gmail.com";
+        const MASTER_ADMIN_PASS = "Dark6677@_";
+
+        document.getElementById('admin-login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('gate-email').value.trim();
+            const pass = document.getElementById('gate-pass').value;
+
+            if(email === MASTER_ADMIN_EMAIL && pass === MASTER_ADMIN_PASS) {
+                try {
+                    await auth.signInWithEmailAndPassword(email, pass);
+                    document.getElementById('admin-gate').classList.add('hidden');
+                    document.getElementById('sidebar').classList.remove('hidden');
+                    document.getElementById('workspace').classList.remove('hidden');
+                    runAdminCoreEngine();
+                } catch(err) { alert("Firebase Sync Failed: " + err.message); }
+            } else { alert("🚫 অ্যাক্সেস ডিনাইড!"); }
+        });
+
+        function runAdminCoreEngine() {
+            db.collection("users").onSnapshot((snapshot) => {
+                document.getElementById('count-users').innerText = snapshot.size;
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = "";
+                let accumulatedPoints = 0;
+
+                snapshot.forEach((doc) => {
+                    const user = doc.data();
+                    const uid = doc.id;
+                    accumulatedPoints += (user.points || 0);
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-950/40 border-b border-slate-900/40">
+                            <td class="p-4">
+                                <p class="font-bold text-slate-200">${user.realName || 'Global User'}</p>
+                                <p class="text-[10px] text-purple-400">@${user.username || 'unknown'}</p>
+                            </td>
+                            <td class="p-4 text-center font-bold text-yellow-400">${user.points || 0} Pts</td>
+                            <td class="p-4 text-center font-semibold text-slate-400">${user.completed || 0}</td>
+                            <td class="p-4 flex justify-center gap-2">
+                                <button onclick="modifyUserPoints('${uid}', 10)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded text-[10px] font-bold">+10</button>
+                                <button onclick="modifyUserPoints('${uid}', -10)" class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-1 rounded text-[10px] font-bold">-10</button>
+                                <button onclick="deleteUserRecord('${uid}')" class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded text-[10px] font-bold">Ban</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('count-points').innerText = accumulatedPoints;
+            });
+
+            db.collection("tasks").onSnapshot((snapshot) => {
+                document.getElementById('count-tasks').innerText = snapshot.size;
+                const taskFeed = document.getElementById('admin-tasks-feed');
+                taskFeed.innerHTML = "";
+
+                snapshot.forEach((doc) => {
+                    const task = doc.data();
+                    const id = doc.id;
+
+                    taskFeed.innerHTML += `
+                        <div class="glass-card p-4 rounded-2xl border-l-4 border-purple-500 flex flex-col justify-between space-y-3">
+                            <div>
+                                <div class="flex justify-between items-start">
+                                    <span class="bg-purple-500/10 text-purple-400 text-[9px] font-bold px-2 py-0.5 rounded uppercase">${task.type}</span>
+                                    <span class="text-[10px] text-slate-500">Clicks: <b class="text-sky-400">${task.clicksCompleted || 0}/30</b></span>
+                                </div>
+                                <h4 class="text-xs font-semibold text-slate-200 truncate mt-2">${task.link}</h4>
+                                <p class="text-[11px] text-slate-400 truncate mt-0.5">${task.desc || 'No Description'}</p>
+                            </div>
+                            <div class="flex justify-between items-center pt-2 border-t border-slate-900">
+                                <span class="text-[9px] text-slate-500 truncate max-w-[120px]">Creator: ${task.creator}</span>
+                                <button onclick="deleteLiveTask('${id}')" class="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1 rounded-lg text-[10px] font-bold">Remove Ad</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        async function modifyUserPoints(uid, amount) { await db.collection("users").doc(uid).update({ points: firebase.firestore.FieldValue.increment(amount) }); }
+        async function deleteUserRecord(uid) { if(confirm("ইউজারকে ব্যান করবেন?")) await db.collection("users").doc(uid).delete(); }
+        async function deleteLiveTask(id) { if(confirm("বিজ্ঞাপনটি ডিলিট করবেন?")) await db.collection("tasks").doc(id).delete(); }
+
+        function openCustomTaskModal() { document.getElementById('custom-task-modal').classList.remove('hidden'); }
+        function closeCustomTaskModal() { document.getElementById('custom-task-modal').classList.add('hidden'); }
+
+        document.getElementById('admin-push-task-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await db.collection("tasks").add({
+                type: document.getElementById('task-type').value,
+                link: document.getElementById('task-link').value,
+                desc: document.getElementById('task-desc').value,
+                creator: "ADMIN_ROOT_PUSH",
+                clicksCompleted: 0
+            });
+            alert("🚀 সফলভাবে টাস্ক লাইভ হয়েছে!");
+            document.getElementById('admin-push-task-form').reset();
+            closeCustomTaskModal();
+        });
+
+        function adminLogout() { auth.signOut().then(() => { window.location.reload(); }); }
+        function switchAdminTab(tabId) {
+            document.querySelectorAll('.admin-view').forEach(view => view.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('#sidebar button').forEach(btn => btn.classList.remove('admin-nav-active'));
+            if(document.getElementById(`tab-${tabId}`)) document.getElementById(`tab-${tabId}`).classList.add('admin-nav-active');
+        }
+    </script>
+</body>
+</html>
